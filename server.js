@@ -6,32 +6,35 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Clé secrète Hugging Face récupérée depuis Render
 const HF_TOKEN = process.env.HF_TOKEN; 
 
 app.post('/chat', async (req, res) => {
     try {
+        // MISE À JOUR : Utilisation de la nouvelle adresse "router.huggingface.co"
         const response = await axios.post(
-            "https://api-inference.huggingface.co/models/MistralAI/Mistral-7B-Instruct-v0.2",
+            "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3",
             { 
                 inputs: `<s>[INST] Tu es l'assistant du Laboratoire DU NORD à Tétouan. Directeur : Dr. CHAOUI Tarik. 
-                Réponds poliment et brièvement en français ou arabe. 
-                Horaires: 24h/24 et 7j/7. 
-                Prélèvements domicile: +212 658 02 01 90. 
+                Réponds poliment et brièvement. 
+                Horaires: 24h/24. 
                 Question: ${req.body.message} [/INST]`,
                 parameters: { max_new_tokens: 250, temperature: 0.7 }
             },
             { headers: { Authorization: `Bearer ${HF_TOKEN}` } }
         );
 
-        // Extraction de la réponse propre
-        let fullText = response.data[0].generated_text;
-        let reply = fullText.split('[/INST]').pop().trim();
+        // Extraction de la réponse
+        let reply = "";
+        if (Array.isArray(response.data)) {
+            reply = response.data[0].generated_text.split('[/INST]').pop();
+        } else {
+            reply = response.data.generated_text.split('[/INST]').pop();
+        }
         
-        res.json({ reply: reply });
+        res.json({ reply: reply.trim() });
     } catch (error) {
-        console.error("Erreur serveur:", error);
-        res.status(500).json({ error: "L'IA est momentanément indisponible." });
+        console.error("Erreur détaillée:", error.response ? error.response.data : error.message);
+        res.status(500).json({ error: "L'IA est en cours de chargement, réessayez dans 10 secondes." });
     }
 });
 
