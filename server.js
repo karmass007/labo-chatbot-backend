@@ -6,28 +6,34 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// On récupère la clé depuis les réglages du serveur (Render)
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY; 
+// Clé secrète Hugging Face récupérée depuis Render
+const HF_TOKEN = process.env.HF_TOKEN; 
 
 app.post('/chat', async (req, res) => {
     try {
-        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-            model: "gpt-3.5-turbo", // Plus rapide et moins cher pour commencer
-            messages: [
-                {
-                    role: "system", 
-                    content: "Tu es l'assistant IA du Laboratoire DU NORD à Tétouan. Directeur : Dr. CHAOUI Tarik. Tu es expert, poli et tu réponds en français ou en arabe. Le labo est ouvert 24h/24 et 7j/7."
-                },
-                { role: "user", content: req.body.message }
-            ]
-        }, {
-            headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}` }
-        });
-        res.json({ reply: response.data.choices[0].message.content });
+        const response = await axios.post(
+            "https://api-inference.huggingface.co/models/MistralAI/Mistral-7B-Instruct-v0.2",
+            { 
+                inputs: `<s>[INST] Tu es l'assistant du Laboratoire DU NORD à Tétouan. Directeur : Dr. CHAOUI Tarik. 
+                Réponds poliment et brièvement en français ou arabe. 
+                Horaires: 24h/24 et 7j/7. 
+                Prélèvements domicile: +212 658 02 01 90. 
+                Question: ${req.body.message} [/INST]`,
+                parameters: { max_new_tokens: 250, temperature: 0.7 }
+            },
+            { headers: { Authorization: `Bearer ${HF_TOKEN}` } }
+        );
+
+        // Extraction de la réponse propre
+        let fullText = response.data[0].generated_text;
+        let reply = fullText.split('[/INST]').pop().trim();
+        
+        res.json({ reply: reply });
     } catch (error) {
-        res.status(500).json({ error: "Erreur IA" });
+        console.error("Erreur serveur:", error);
+        res.status(500).json({ error: "L'IA est momentanément indisponible." });
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
