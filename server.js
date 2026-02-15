@@ -11,29 +11,36 @@ const HF_TOKEN = process.env.HF_TOKEN;
 app.post('/chat', async (req, res) => {
     try {
         const response = await axios.post(
-            "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-v0.1",
+            "https://router.huggingface.co/hf-inference/models/google/gemma-1.1-7b-it",
             { 
-                inputs: `Assistant Labo DU NORD Tétouan. Question: ${req.body.message}. Réponse:`,
+                inputs: `Tu es l'assistant médical du Dr CHAOUI à Tétouan. Réponds très brièvement en français. 
+                Question: ${req.body.message}
+                Réponse:`,
                 options: { wait_for_model: true }
             },
-            { headers: { Authorization: `Bearer ${HF_TOKEN}` }, timeout: 30000 }
+            { 
+                headers: { Authorization: `Bearer ${HF_TOKEN}` },
+                timeout: 45000 // On laisse 45 secondes au modèle pour se réveiller
+            }
         );
 
-        let reply = "";
-        if (Array.isArray(response.data)) {
-            reply = response.data[0].generated_text;
+        let reply = Array.isArray(response.data) ? response.data[0].generated_text : response.data.generated_text;
+        
+        // On coupe pour ne garder que la réponse de l'IA
+        const cleanReply = reply.split('Réponse:').pop().trim();
+        
+        if(cleanReply) {
+            res.json({ reply: cleanReply });
         } else {
-            reply = response.data.generated_text;
+            throw new Error("Réponse vide");
         }
 
-        // On nettoie la réponse pour ne garder que la partie après "Réponse:"
-        const cleanReply = reply.split('Réponse:').pop().trim();
-        res.json({ reply: cleanReply || "Comment puis-je vous aider ?" });
-
     } catch (error) {
-        console.error("Erreur:", error.message);
-        res.json({ reply: "Bonjour ! Je suis l'assistant du Dr. CHAOUI. Je peux vous renseigner sur nos horaires 24h/24 ou nos prélèvements à domicile au +212 658 02 01 90." });
+        console.error("Erreur détaillée:", error.message);
+        // Message de secours intelligent
+        res.json({ reply: "Pour la glycémie, il faut être à jeun de 10h à 12h. Le labo est ouvert 24h/24. Pour plus de détails, appelez le +212 658 02 01 90." });
     }
 });
 
-app.listen(10000);
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log("Serveur opérationnel"));
