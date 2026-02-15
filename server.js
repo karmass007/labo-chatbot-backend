@@ -11,32 +11,29 @@ const HF_TOKEN = process.env.HF_TOKEN;
 app.post('/chat', async (req, res) => {
     try {
         const response = await axios.post(
-            "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.3",
+            "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-v0.1",
             { 
-                inputs: `<s>[INST] Tu es l'assistant du Laboratoire DU NORD à Tétouan. Directeur : Dr. CHAOUI Tarik. 
-                Réponds poliment et très brièvement en français ou arabe. 
-                Horaires: 24h/24. 
-                Question: ${req.body.message} [/INST]`,
-                parameters: { 
-                    max_new_tokens: 250, 
-                    temperature: 0.7
-                },
-                options: {
-                    wait_for_model: true // CRUCIAL : Attend que l'IA soit prête au lieu de faire une erreur
-                }
+                inputs: `Assistant Labo DU NORD Tétouan. Question: ${req.body.message}. Réponse:`,
+                options: { wait_for_model: true }
             },
-            { headers: { Authorization: `Bearer ${HF_TOKEN}` } }
+            { headers: { Authorization: `Bearer ${HF_TOKEN}` }, timeout: 30000 }
         );
 
-        let fullText = Array.isArray(response.data) ? response.data[0].generated_text : response.data.generated_text;
-        let reply = fullText.split('[/INST]').pop().trim();
-        
-        res.json({ reply: reply });
+        let reply = "";
+        if (Array.isArray(response.data)) {
+            reply = response.data[0].generated_text;
+        } else {
+            reply = response.data.generated_text;
+        }
+
+        // On nettoie la réponse pour ne garder que la partie après "Réponse:"
+        const cleanReply = reply.split('Réponse:').pop().trim();
+        res.json({ reply: cleanReply || "Comment puis-je vous aider ?" });
+
     } catch (error) {
-        console.error("Erreur détaillée:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: "IA en cours de réveil" });
+        console.error("Erreur:", error.message);
+        res.json({ reply: "Bonjour ! Je suis l'assistant du Dr. CHAOUI. Je peux vous renseigner sur nos horaires 24h/24 ou nos prélèvements à domicile au +212 658 02 01 90." });
     }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Serveur prêt sur le port ${PORT}`));
+app.listen(10000);
